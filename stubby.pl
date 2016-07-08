@@ -4,6 +4,11 @@ use warnings;
 use v5.10.1;
 use Data::Dumper;
 
+# Find all perl files
+my @files = glob("*.pl *.pm *.cgi");
+
+unless (@files) { die "There are no .pl, .pm, or .cgi files in this dircetory."}
+
 # Insure we have a t/ test directory
 unless (-d "./t") {
   # Create it
@@ -11,16 +16,13 @@ unless (-d "./t") {
   mkdir "./t" or die "Failed to create test directory: $1";
 }
 
-# Find all perl files
-my @files = glob("*.pl *.pm *.cgi");
-
 foreach my $file (@files) {
   my $shortname = $file;
   $shortname =~ s{\.[^.]+$}{};
   say $shortname;
   say $file;
 
-  # Create a strict/warnings syntax test for each
+  # Create a strict/warnings syntax test for each file
   unless (-e "./t/$shortname-syntax.t") {
     open(my $test, ">", "./t/$shortname-syntax.t") or
       die "Couldn't create ./t/$shortname-syntax.t";
@@ -39,7 +41,6 @@ EOF
   # or defined (our definitions).
   say "Working on $file";
   my %globals;
-  my %config;
   open my $fh, "<", $file;
   while (<$fh>) {
     if (m/^our (?<global>.+);/) {
@@ -51,8 +52,14 @@ EOF
         next; # We found a (list, of, vars), split, added, and now next iteration.
       }
       $globals{$+{global}}++;
-      m/\$config\{'(?<config>.+?)'\}/ && $config{$+{config}}++;
     }
+    # Collect all config variables referenced
+    my %config;
+    m/\$config\{'(?<config>.+?)'\}/ && $config{$+{config}}++;
+    # Collect %in variables referenced
+    my %in;
+    m/\$in\{'(?<in>.+?)'\}/ && $in{$+{in}}++;
+    #
   }
   close $fh;
   say Dumper(keys %globals);
